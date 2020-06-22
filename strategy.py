@@ -7,12 +7,12 @@ class Strategy():
 
     def __init__(self):
         self.subscribedBooks = {
-            "Bitfinex": {
+            "Binance": {
                 "pairs": ["BTC-USDT"],
             },
         }
-
-        self.period = 60 * 30
+        self.options = {}
+        self.period = 60 * 15
 
         # ATR
         self.n = 0
@@ -34,48 +34,49 @@ class Strategy():
         # Last buy price
         self.buyPrice = 0
 
-    def reclac(self, exchange, currency, baseCurrency):
+    def recalc(self, exchange, currency, baseCurrency):
         trueRangeSum = 0
         self.donchian_channel_low = 0
         self.donchian_channel_stop_profit = 10000000000
-        if len(self.history) > 42:
-            history.pop(0)
-        if len(self.nHistory) > 19:
-            nHistory.pop(0)
+        if len(self.history) > 82:
+            self.history.pop(0)
+        if len(self.nHistory) > 79:
+            self.nHistory.pop(0)
 
-        preInfo = self.history[40]
-        info = self.history[41]
-        trueRangeSum += max(info.High - info.Low, info.High - preInfo.Close, preInfo.Close - info.Low)
+        preInfo = self.history[80]
+        info = self.history[81]
+        trueRangeSum += max(info["High"] - info["Low"], info["High"] - preInfo["Close"], preInfo["Close"] - info["Low"])
         for nn in self.nHistory:
             trueRangeSum += nn
 
-        for i in range(40):
-            preInfo = self.history[40 - i - 1]
-            info = self.history[40 - i]
-            self.donchian_channel_high = max(this.donchian_channel_high, info.High)
-            if i < 20:
-                self.donchian_channel_stop_profit = min(this.donchian_channel_stop_profit, info.Low)
+        for i in range(80):
+            preInfo = self.history[80 - i - 1]
+            info = self.history[80 - i]
+            self.donchian_channel_high = max(self.donchian_channel_high, info["High"])
+            if i < 80:
+                self.donchian_channel_stop_profit = min(self.donchian_channel_stop_profit, info["Low"])
 
-        self.n = trueRangeSum / (this.nHistory.length + 1)
+        self.n = trueRangeSum / (len(self.nHistory) + 1)
         
         # Minimum volitility
-        if (self.n < 40):
-            self.n = 40
+        if (self.n < 80):
+            self.n = 80
         self.nHistory.append(self.n)
         
-        balance = self.assets[exchange][currency] * self.history[41].Close + self.assets[exchange][baseCurrency]
+        balance = self["assets"][exchange][currency] * self.history[41]["Close"] + self["assets"][exchange][baseCurrency]
 
         self.unit = (0.03 * balance) / self.n
+        # Log(str(self.n) + " " + str(self.unit))
 
     def try_open(self):
         if self.position == 0:
-            last_price = self.history[41].Close
+            last_price = self.history[81]["Close"]
             if last_price >= self.donchian_channel_high:
                 return self.unit
         return 0
 
-    def try_close():
-        last_price = self.history[41].Close
+    def try_close(self):
+        last_price = self.history[81]["Close"]
         if self.position > 0:
             if last_price >= self.buyPrice + 0.5 * self.n:
                 return self.unit
@@ -91,22 +92,24 @@ class Strategy():
         pair = list(information["candles"][exchange])[0]
         candleData = information["candles"][exchange][pair][0]
         last_price = candleData["close"]
+        currency = pair.split("-")[0]
+        baseCurrency = pair.split("-")[1]
 
-        self.history.push({
+        self.history.append({
             "Time": candleData["time"],
             "Open": candleData["open"],
             "Close": candleData["close"],
             "High": candleData["high"],
             "Low": candleData["low"],
-            "Volumn": candleData["volumn"],
         })
 
-        if len(self.history) >= 42:
+        if len(self.history) >= 82:
             self.recalc(exchange, currency, baseCurrency)
 
             open = self.try_open()
             if open:
-                open = min(open, self.assets[exchange][baseCurrency] / last_price / 1.1)
+                Log(str(open))
+                open = min(open, self["assets"][exchange][baseCurrency] / last_price / 1.1)
                 # Due to low market depth
                 open = min(open, 3)
                 self.position = open
@@ -124,7 +127,7 @@ class Strategy():
             close = self.try_close()
             if close:
                 if close > 0:
-                    close = min(close, self.assets[exchange][baseCurrency] / last_price / 1.1)
+                    close = min(close, self["assets"][exchange][baseCurrency] / last_price / 1.1)
                     close = min(close, 3)
                     self.buyPrice = last_price
                 else:
